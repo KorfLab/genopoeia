@@ -1,0 +1,94 @@
+#!/bin/env python3
+
+import argparse
+import random
+import sys
+
+from grimoire.feature import Feature
+from grimoire.sequence import DNA
+
+
+def generate_seq(size, model):
+	if    model == 'iid': return iid_sequence(size)
+	else: sys.exit(f'unknown sequence model {model}')
+
+def generate_bias(size, model):
+	if    model == 'none': return bias_none(size)
+	elif  model == 'b1': return bias_b1(size)
+	else: sys.exit(f'unknown bias model {model}')
+
+def iid_sequence(size):
+	seq = [random.choice('ACGT') for _ in range(size)]
+	return ''.join(seq)
+
+def bias_none(chrom):
+	return [Feature(chrom, 1, len(chrom.seq), '.', 'bias', score=0)]
+
+def bias_b1(chrom): # 7 zones from -3 to +3
+	x = len(chrom.seq) // 7
+	zones = []
+	for i in range(0, len(chrom.seq), x):
+		beg = i + 1
+		end = i + x
+		s = i // x - 3
+		if end > len(chrom.seq): break
+		zones.append(Feature(chrom, beg, end, '.', 'bias', score=s))
+	return zones
+
+def create(arg):
+	random.seed(arg.seed)
+
+	models = ('iid',)
+	biases = ('none', 'b1')
+
+	for m, model_name in enumerate(models):
+		for b, bias_name in enumerate(biases):
+			# build from inner loop
+			seq = generate_seq(arg.size, model_name)
+			chrom = DNA(name=f'Ch{m}{b}', seq=seq)
+			for bias in generate_bias(chrom, bias_name):
+				chrom.ftable.add_feature(bias)
+			print(chrom.ftable.gff())
+
+def sample(arg):
+	random.seed(arg.seed)
+	if   arg.type == 'genome': sample_genome(arg)
+	elif arg.type == 'narrow': sample_narrow_peaks(arg)
+	elif arg.type == 'wide':   sample_wide_peaks(arg)
+	else: sys.exit(f'ERROR: unknown sample type {arg.type}')
+
+def sample_genome(arg):
+	pass
+	# read in fasta, gff
+	# create weights for the sequence
+	# sample reads based on weights
+
+
+
+## CLI
+parser = argparse.ArgumentParser()
+parser.add_argument('--seed', type=int, default=1,
+	help='random seed [%(default)i]')
+parser.add_argument('--size', type=int, default=1000,
+	help='chromosome size [%(default) but do no mess with it')
+sub = parser.add_subparsers(required=True, help='sub-commands')
+
+## create
+sub1 = sub.add_parser('create', help='create a genome (fasta, gff)')
+sub1.set_defaults(func=create)
+
+## sample
+sub2 = sub.add_parser('sample', help='generated subsequences')
+sub2.add_argument('type', help='genome, chip, rna, etc')
+sub2.add_argument('depth', type=float, help='depth of coverage, e.g. 1x')
+sub2.add_argument('length', type=int, help='length of reads')
+sub2.set_defaults(func=sample)
+
+## execute command
+try: arg = parser.parse_args()
+except: sys.exit(f'{sys.argv[0]} requires a sub-command, use --help for more info')
+arg.func(arg)
+
+
+
+
