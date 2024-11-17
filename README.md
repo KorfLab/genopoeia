@@ -6,7 +6,7 @@ Mythological genomes for testing bioinformatics algorithms.
 ## Design Goals ##
 
 The initial design goal is to create a setting to evalute algorithms used for
-peak-finding and spliced-alignment. In the future, it may be used for
+peak-finding. In the future, it may be used for alignment, spliced alignment,
 differential gene expression, variant detection, gene-prediction, or even
 pan-genomic analyses.
 
@@ -41,58 +41,54 @@ extension. The "source" is a free text field that describes how the GHMM was
 built. Most of the GHMM is described as a dictionary of "state" objects.
 
 Each "state" object is indexed by its name. State objects can be of three
-types: "markov", "pwm", or "fixed". A "markov" state generates sequence 1 nt at
-a time over a weighted random duration. This is used to generate features with
-variable lengths, such as intergenic sequences. A "pwm" state generates
+types: "markov", "pwm", or "static". A "markov" state generates sequence 1 nt
+at a time over a weighted random duration. This is used to generate features
+with variable lengths, such as intergenic sequences. A "pwm" state generates
 sequence from a position weight matrix. This is used for features with standard
-lengths such as splice sites. A "fixed" state generates an exact sequence and a
-corresponding "drift" rate. This is useful for representing repeats of various
-ages.
+lengths and specific misspellings, such as splice sites. A "static" state
+generates an exact sequence and a corresponding "drift" rate. This is useful
+for representing repeats of various ages. All states also specify "init" and
+"term", which specifies the weight assoiciated with starting or ending in a
+state.
 
-Do I want to make sure that fake coding sequences have no stop codons?
-Do I parse the CDS and then re-make it when there are fused stops?
-
-To see how all this fits together, it's best to look at an example. Line
-numbers are shown for clarity (they are errors in JSON).
+To see how all this fits together, it's best to look at a simple example.
 
 ```
-1	{
-2		"name": "toy",
-3		"source": "fabricated",
-4		"states": {
-5			"iid": {
-6				"type": "markov",
-				"transitions": {"hom": 1.0},
-				"durations": [0, 0, 0, 1, 1, 1],
-				"emissions": {"": [1, 1, 1, 1]},
-			},
-			"hom": {
-				"type": "markov",
-				"transitions": {"iid": 0.5, "rep": 0.5},
-				"durations": [2, 2, 2, 1, 1, 1],
-				"emissions": {
-					"A": [9, 1, 1, 1],
-					"C": [1, 9, 1, 1],
-					"G": [1, 1, 9, 1],
-					"T": [1, 1, 1, 9]
-				}
-			},
-			"rep": {
-				"type": "repeat",
-				"transitions": {"hom": 1}
-				"sequence": "ACGTACGTACGT",
-				"age": 0.01
+{
+	"name": "toy",
+	"source": "fabricated",
+	"states": {
+		"iid": {
+			"type": "markov",
+			"init": 1,
+			"term": 1,
+			"transitions": {"hom": 1.0},
+			"durations": [0, 0, 0, 1, 1, 1],
+			"emissions": {"": [1, 1, 1, 1]},
+		},
+		"hom": {
+			"type": "markov",
+			"init": 0,
+			"term": 0,
+			"transitions": {"iid": 0.5, "rep": 0.5},
+			"durations": [2, 2, 2, 1, 1, 1],
+			"emissions": {
+				"A": [9, 1, 1, 1],
+				"C": [1, 9, 1, 1],
+				"G": [1, 1, 9, 1],
+				"T": [1, 1, 1, 9]
 			}
 		}
 	}
+}
 ```
 
-The toy GHMM above flip-flops back and forth between two states: s1 (lines 5-9)
-and s2 (lines 10-20). In s1, sequences range from 4 to 6 nt long (note the zero
-weights on line 7) and the sequence has an unbaised composition (note the empty
-string "" context on line 8). In s2, the sequence is twice as likely to be 1-3
-nt as 4-6 nt (note the 2s vs. the 1s on line 13), and the composition favors
-homopolymers (note the 9s vs the 1s on lines 15-18).
+The toy GHMM above flip-flops back and forth between two states: iid and hom.
+In the iid state, the emissions are unbiased and the states are 4-6 nt long. In
+the hom state, the emissions tend to be homopolymers, and the states are more
+likely to be 1-3 nt than 4-6.
+
+Here are some more example states...
 
 ## GHMM Files ##
 
@@ -154,3 +150,4 @@ useful to create a subset of a genome, which is done with `subset_genome.py`.
 ## Gene Feature ##
 
 Genes require more complex sequence model
+
