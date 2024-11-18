@@ -8,12 +8,14 @@ def random_seq(n):
 	return ''.join(seq)
 
 def make_noise(rate, depth, start, length, size):
+	# noise should always go down to zero at the boundaries
 	n = int(rate * depth * length / size)
 	return [random.randint(start, start+ length) for _ in range(n)]
 
 def make_peaks(rate, depth, mu, sig, width, size):
 	if width < size: width = size
 	n = int(rate * depth * width / size)
+	# not quite correct, must sample along the width of the peak
 	return [int(random.gauss(mu, sig)) for _ in range(n)]
 
 
@@ -43,12 +45,14 @@ random.seed(arg.seed)
 reads = [] # sequencing read positions
 gffs = [] # position of peaks (both foreground and background)
 pos = arg.space # start of first peak
+info = []
 for _ in range(arg.loci):
 	for f in arg.peaks:
 		gffs.append( ('fore', pos, f) )
 		for b in arg.bias:
 			gffs.append( ('back', pos, b) )
 			for n in arg.noise:
+				info.append(f'pos:{pos} fore:{f} back:{b} noise:{n}')
 				gs = make_noise(arg.rate, n, pos, arg.width + arg.space, arg.size)
 				fs = make_peaks(arg.rate, f, pos, arg.sigma, arg.width, arg.size)
 				bs = make_peaks(arg.rate, b, pos, arg.sigma, arg.width, arg.size)
@@ -67,13 +71,17 @@ with open(f'{arg.name}.fa', 'w') as fp:
 # create gff
 with open(f'{arg.name}.gff', 'w') as fp:
 	for kind, pos, level in gffs:
-		print('\t'.join((arg.name, 'peak', kind, str(pos), str(pos + arg.size),
-			str(level), '.', '.')), file=fp)
+		print('\t'.join((arg.name, 'peak', kind, str(pos),
+			str(pos + arg.width -1), str(level), '.', '.')), file=fp)
 
 # create fastq
 with open(f'{arg.name}.fq', 'w') as fp:
 	for i, pos in enumerate(reads):
 		print(f'@{arg.name}.{pos}.{i}', file=fp)
-		print(genome[pos:pos+arg.size], file=fp)
-		print('+', file=fp)
-		print('B' * arg.size, file=fp)
+#		print(genome[pos:pos+arg.size], file=fp)
+#		print('+', file=fp)
+#		print('B' * arg.size, file=fp)
+
+# create info
+with open(f'{arg.name}.info', 'w') as fp:
+	for s in info: print(s, file=fp)
