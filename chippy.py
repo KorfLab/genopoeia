@@ -7,29 +7,31 @@ def random_seq(n):
 	for _ in range(n): seq.append(random.choice('ACGT'))
 	return ''.join(seq)
 
-def make_noise(rate, depth, start, length, size):
-	# noise should always go down to zero at the boundaries
-	n = int(rate * depth * length / size)
-	return [random.randint(start, start+ length) for _ in range(n)]
+def make_noise(rate, x, pos, pwidth, rsize):
+	n = int(rate * x * pwidth / rsize)
+	a = pos - rsize + 1
+	b = pos + rsize
+	print('noise', a, b)
+	return [random.randint(a, b) for _ in range(n)]
 
-def make_peaks(rate, depth, mu, sig, width, size):
-	if width < size: width = size
-	n = int(rate * depth * width / size)
-	# not quite correct, must sample along the width of the peak
-	return [int(random.gauss(mu, sig)) for _ in range(n)]
-
+def make_peaks(rate, x, pos, pwidth, rsize):
+	n = int(rate * x * pwidth / rsize)
+	a = pos - rsize + 1
+	b = pos + rsize
+	print('peak', a, b)
+	return [random.randint(a, b) for _ in range(n)]
 
 parser = argparse.ArgumentParser(description='chip-seq sampling simulator')
-parser.add_argument('rate', type=int, help='sampling rate (e.g. 1)')
-parser.add_argument('width', type=int, help='peak width (e.g. 1 or 2000)')
-parser.add_argument('space', type=int, help='space between peaks (e.g. 1000)')
 parser.add_argument('name', help='root name for files')
-parser.add_argument('--seed', type=int, default=1,
-	help='random seed [%(default)i]')
-parser.add_argument('--sigma', type=float, default=20,
-	help='standard deviation for read placement [%(default).1f]')
-parser.add_argument('--size', type=int, default=100,
-	help='read size [%(default)i')
+parser.add_argument('rate', type=int, help='sampling rate (e.g. 1)')
+parser.add_argument('--pwidth', type=int, default=1,
+	help='peak width (e.g. 1, 2000) [%(default)i]')
+parser.add_argument('--buffer', type=int, default=5000,
+	help='buffer space after peaks [%(default)i]')
+parser.add_argument('--barrier', type=int, default=100,
+	help='barrier space between regions [%(default)i]')
+parser.add_argument('--rsize', type=int, default=100,
+	help='read size [%(default)i]')
 parser.add_argument('--peaks', type=list, default=(0, 2, 4, 8, 16, 32),
 	help='height of foreground peaks [%(default)s]')
 parser.add_argument('--bias', type=list, default=(0, 2, 4, 8),
@@ -38,13 +40,15 @@ parser.add_argument('--noise', type=list, default=(0, 1, 2),
 	help='height of background noise [%(default)s]')
 parser.add_argument('--loci', type=int, default=100,
 	help='number of loci [%(default)i]')
+parser.add_argument('--seed', type=int, default=1,
+	help='random seed [%(default)i]')
 arg = parser.parse_args()
 
 random.seed(arg.seed)
 
 reads = [] # sequencing read positions
 gffs = [] # position of peaks (both foreground and background)
-pos = arg.space # start of first peak
+pos = arg.buffer + arg.barrier # start of first peak
 info = []
 for _ in range(arg.loci):
 	for f in arg.peaks:
@@ -53,13 +57,13 @@ for _ in range(arg.loci):
 			gffs.append( ('back', pos, b) )
 			for n in arg.noise:
 				info.append(f'pos:{pos} fore:{f} back:{b} noise:{n}')
-				gs = make_noise(arg.rate, n, pos, arg.width + arg.space, arg.size)
-				fs = make_peaks(arg.rate, f, pos, arg.sigma, arg.width, arg.size)
-				bs = make_peaks(arg.rate, b, pos, arg.sigma, arg.width, arg.size)
+				gs = make_noise(arg.rate, n, pos, arg.pwidth, arg.rsize)
+				fs = make_peaks(arg.rate, f, pos, arg.pwidth, arg.rsize)
+				bs = make_peaks(arg.rate, b, pos, arg.pwidth, arg.rsize)
 				reads.extend(gs)
 				reads.extend(fs)
 				reads.extend(bs)
-				pos += arg.space
+				pos += arg.pwidth + arg.buffer + arg.barrier
 
 # create fasta
 genome = random_seq(pos)
@@ -72,7 +76,7 @@ with open(f'{arg.name}.fa', 'w') as fp:
 with open(f'{arg.name}.gff', 'w') as fp:
 	for kind, pos, level in gffs:
 		print('\t'.join((arg.name, 'peak', kind, str(pos),
-			str(pos + arg.width -1), str(level), '.', '.')), file=fp)
+			str(pos + arg.pwidth -1), str(level), '.', '.')), file=fp)
 
 # create fastq
 with open(f'{arg.name}.fq', 'w') as fp:
