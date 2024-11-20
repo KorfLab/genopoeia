@@ -53,13 +53,13 @@ random.seed(arg.seed)
 # globals
 cid = 0 # unique chromosome id
 rid = 0 # unique read id
-vimin = int(arg.vintron[0])
-vimax = int(arg.vintron[1])
-vemin = int(arg.vexon[0])
-vemax = int(arg.vexon[1])
 
+# Experiment 1
 # how do intron lengths affect alignment?
 # [exon]---v.intron---[exon]
+
+vimin = int(arg.vintron[0])
+vimax = int(arg.vintron[1])
 
 gfp = open(f'{arg.root}/vi.genome.fa', 'w')
 rfp = open(f'{arg.root}/vi.reads.fa', 'w')
@@ -85,12 +85,16 @@ gfp.close()
 rfp.close()
 ifp.close()
 
-# how do exon lengths affect alignment?
+# Experiment 2
+# how does middle exon length affect alignment?
 # [exon]---intron---[v.exon]---intron---[exon]
 
-gfp = open(f'{arg.root}/ve.genome.fa', 'w')
-rfp = open(f'{arg.root}/ve.reads.fa', 'w')
-ifp = open(f'{arg.root}/ve.info.txt', 'w')
+vemin = int(arg.vexon[0])
+vemax = int(arg.vexon[1])
+
+gfp = open(f'{arg.root}/vem.genome.fa', 'w')
+rfp = open(f'{arg.root}/vem.reads.fa', 'w')
+ifp = open(f'{arg.root}/vem.info.txt', 'w')
 
 for elen in range(vemin, vemax + 1):
 	cid += 1
@@ -117,16 +121,30 @@ gfp.close()
 rfp.close()
 ifp.close()
 
+# Experiment 3
+# how does initial exon length affect alignment?
+# [v.exon]---intron---[exon]
+
+# Experiment 4
+# how does terminal exon length affect alignment?
+# [exon]---intron---[v.exon]
+
 """
-+ vi vary intron length
-+ ve vary exon length
-- low complexity
-- paralogy
-- non-canonical
-- trans-splicing
-- poly-A tail
++ intron lengths (vi)
++ exon lengths
+	+ middle (vem)
+	+ initial (vei)
+	+ terminal (vet)
 - fusions
-- substitutions
-- indels
+	- trans-splicing (ts)
+	- poly-A (pa)
+	- arbitrary	(af)
+- confusions
+	- low complexity
+	- paralogy
+	- non-canonical
+- mutations
+	- substitutions
+	- indels
 """
 
