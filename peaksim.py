@@ -59,13 +59,16 @@ for _ in range(arg.loci):
 				n = int(n)
 
 				# flat noise
+				gffs.append( ('noise', start, start + arg.locus, n) )
 				gs = make_noise(arg.rate, n, start, arg.locus, arg.rsize)
 				reads.extend(gs)
 
-				# peak noise
+				# peaks
 				m = start + half         # mid-point of peak
 				a = m - arg.pwidth // 2  # start of peak
 				b = a + arg.pwidth -1    # end of peak
+
+				# peak noise
 				gffs.append( ('back', a, b, bg) )
 				bgs = make_peaks(arg.rate, bg, a, b, arg.rsize)
 				reads.extend(bgs)
@@ -88,13 +91,14 @@ with open(f'{arg.name}.fa', 'w') as fp:
 # create gff
 with open(f'{arg.name}.gff', 'w') as fp:
 	for kind, a, b, level in gffs:
-		print('\t'.join((arg.name, 'peak', kind, str(a), str(b), str(level),
-			'.', '.')), file=fp)
+		if level == 0: continue
+		print('\t'.join((arg.name, 'peak', kind, str(a+1), str(b+1),
+			str(level), '.', '.')), file=fp)
 
 # create fastq
 with open(f'{arg.name}.fq', 'w') as fp:
 	for i, pos in enumerate(reads):
-		print(f'@{arg.name}.{pos}.{i}', file=fp)
+		print(f'@{arg.name}.{pos+1}.{i}', file=fp)
 		print(genome[pos:pos+arg.rsize], file=fp)
 		print('+', file=fp)
 		print('B' * arg.rsize, file=fp)
