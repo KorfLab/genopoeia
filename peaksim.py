@@ -14,7 +14,8 @@ def make_noise(rate, x, pos, nwidth, rsize):
 	return [random.randint(a, b) for _ in range(n)]
 
 def make_peaks(rate, x, beg, end, rsize):
-	n = int(rate * x * (end - beg + 1) / rsize)
+	peak_range = end - beg + 1 + 2 * (rsize -1)
+	n = int(rate * x * peak_range / rsize)
 	a = beg - rsize
 	b = end + rsize
 	return [random.randint(a, b) for _ in range(n)]
@@ -47,7 +48,9 @@ random.seed(arg.seed)
 if arg.peaks[0] != 0: sys.exit('start peaks with 0')
 if arg.bias[0] != 0: sys.exit('start bias with 0')
 
-reads = []                      # sequencing read positions
+freads = []                     # foreground read positions
+breads = []                     # background read positions
+nreads = []                     # noise read positions
 gffs = []                       # peak positions
 start = arg.barrier             # the current starting position of a locus
 half = arg.locus // 2           # half locus size (peak at center)
@@ -61,7 +64,7 @@ for _ in range(arg.loci):
 				# flat noise
 				gffs.append( ('noise', start, start + arg.locus, n) )
 				gs = make_noise(arg.rate, n, start, arg.locus, arg.rsize)
-				reads.extend(gs)
+				nreads.extend(gs)
 
 				# peaks
 				m = start + half         # mid-point of peak
@@ -71,12 +74,12 @@ for _ in range(arg.loci):
 				# peak noise
 				gffs.append( ('back', a, b, bg) )
 				bgs = make_peaks(arg.rate, bg, a, b, arg.rsize)
-				reads.extend(bgs)
+				breads.extend(bgs)
 
 				# peak signal
 				gffs.append( ('fore', a, b, fg) )
 				fgs = make_peaks(arg.rate, fg, a, b, arg.rsize)
-				reads.extend(fgs)
+				freads.extend(fgs)
 
 				# update
 				start += arg.locus + arg.barrier
@@ -96,9 +99,23 @@ with open(f'{arg.name}.gff', 'w') as fp:
 			str(level), '.', '.')), file=fp)
 
 # create fastq
-with open(f'{arg.name}.fq', 'w') as fp:
-	for i, pos in enumerate(reads):
+with open(f'{arg.name}_noise.fq', 'w') as fp:
+	for i, pos in enumerate(nreads):
+		print(f'@{arg.name}.{pos+1}.{i}', file=fp)
+		print(genome[pos:pos+arg.rsize], file=fp)
+		print('+', file=fp)
+		print('N' * arg.rsize, file=fp)
+
+with open(f'{arg.name}_background.fq', 'w') as fp:
+	for i, pos in enumerate(breads):
 		print(f'@{arg.name}.{pos+1}.{i}', file=fp)
 		print(genome[pos:pos+arg.rsize], file=fp)
 		print('+', file=fp)
 		print('B' * arg.rsize, file=fp)
+
+with open(f'{arg.name}_foreground.fq', 'w') as fp:
+	for i, pos in enumerate(freads):
+		print(f'@{arg.name}.{pos+1}.{i}', file=fp)
+		print(genome[pos:pos+arg.rsize], file=fp)
+		print('+', file=fp)
+		print('F' * arg.rsize, file=fp)
